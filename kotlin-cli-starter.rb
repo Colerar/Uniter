@@ -4,21 +4,21 @@
 # You can create your own tap if that's not an option https://docs.brew.sh/Taps
 class KotlinCliStarter < Formula
   desc "Git extension to generate reports for standup - in Kotlin Multiplatform"
-  homepage "https://github.com/jmfayard/kotlin-cli-starter"
-  url "https://github.com/jmfayard/kotlin-cli-starter/archive/refs/tags/v0.3.tar.gz"
-  sha256 "bbfaec0b9ed0918feeeed02036e8bddfd5d028f11e09fec8e9af1361a3eaeace"
+#   homepage "https://github.com/jmfayard/kotlin-cli-starter"
+#   url "https://github.com/jmfayard/kotlin-cli-starter/archive/refs/tags/v0.3.tar.gz"
+#   sha256 "bbfaec0b9ed0918feeeed02036e8bddfd5d028f11e09fec8e9af1361a3eaeace"
   license "MIT"
 
   depends_on "gradle" => :build
   depends_on "openjdk" => :build
 
-  conflicts_with "git-standup", because: "both install `git-standup` binaries"
+  conflicts_with "uniter", because: "both install `uniter` binaries"
 
   def install
     system "./gradlew", "macosX64Test", "linkReleaseExecutableMacosX64"
-    bin.install "build/bin/macosX64/releaseExecutable/kotlin-cli-starter.kexe" => "git-standup"
-    bash_completion.install "completions/git-standup.bash" => "git-standup"
-    fish_completion.install "completions/git-standup.fish"
+    bin.install "build/bin/macosX64/releaseExecutable/kotlin-cli-starter.kexe" => "uniter"
+    bash_completion.install "completions/uniter.bash" => "uniter"
+    fish_completion.install "completions/uniter.fish"
     zsh_completion.install "completions/_git_standup.zsh" => "_git_standup"
   end
 
@@ -28,6 +28,6 @@ class KotlinCliStarter < Formula
     system "git", "add", "#{testpath}/test"
     system "git", "commit", "--message", "test"
     system "git", "config", "--global", "user.name", "tap.user"
-    system "#{bin}/git-standup", "--days", "3"
+    system "#{bin}/uniter", "--days", "3"
   end
 end

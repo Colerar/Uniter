@@ -1,8 +1,8 @@
-import cli.runGitStandup
-import kotlinx.coroutines.runBlocking
+import cli.cmd.runUniter
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
 
+@OptIn(DelicateCoroutinesApi::class)
 fun main(args: Array<String>) {
-    runBlocking {
-        runGitStandup(args)
-    }
+    GlobalScope.runUniter(args)
 }

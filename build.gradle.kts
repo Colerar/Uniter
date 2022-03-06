@@ -1,5 +1,18 @@
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithHostTests
+import com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING
+import java.time.*
+import java.time.format.*
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.30")
+        classpath("com.codingfeline.buildkonfig:buildkonfig-gradle-plugin:0.11.0")
+    }
+}
 
 plugins {
     application
@@ -7,29 +20,29 @@ plugins {
     kotlin("plugin.serialization")
     id("com.github.johnrengelman.shadow")
     id("dev.petuska.npm.publish")
+    id("com.codingfeline.buildkonfig") version "0.11.0"
 }
 
 group = "cli"
-version = "0.2.0"
+version = "1.0.0-DEV"
 
-// CUSTOMIZE_ME: the name of your command-line tool goes here
-val PROGRAM = "git-standup"
+@Suppress("PropertyName")
+val PROGRAM = "uniter"
 
 repositories {
     mavenCentral()
-    jcenter()
 }
 
 dependencies {
-    testImplementation(Testing.junit.params)
-    testRuntimeOnly(Testing.junit.engine)
+    testImplementation(Testing.junit.jupiter.params)
+    testRuntimeOnly(Testing.junit.jupiter.engine)
 }
 
 application {
     mainClass.set("cli.JvmMainKt")
 }
 
-val hostOs = System.getProperty("os.name")
+val hostOs: String = System.getProperty("os.name")
 val nativeTarget = when {
     hostOs == "Mac OS X" -> "MacosX64"
     hostOs == "Linux" -> "LinuxX64"
@@ -55,18 +68,19 @@ kotlin {
 
     sourceSets {
         all {
-            languageSettings.useExperimentalAnnotation("kotlin.RequiresOptIn")
+            languageSettings.optIn("kotlin.RequiresOptIn")
         }
 
         val commonMain by getting {
             dependencies {
+                // Clikt - https://ajalt.github.io/clikt/
                 implementation("com.github.ajalt.clikt:clikt:_")
                 implementation("com.github.ajalt.mordant:mordant:_")
+                // OKIO - https://square.github.io/okio/
                 implementation("com.squareup.okio:okio-multiplatform:_")
+                // Coroutines - https://github.com/Kotlin/kotlinx.coroutines/
                 implementation(KotlinX.coroutines.core)
-
-                /// implementation(Ktor.client.core)
-                /// implementation(Ktor.client.serialization)
+                // Serialization - https://github.com/Kotlin/kotlinx.serialization
                 implementation(KotlinX.serialization.core)
                 implementation(KotlinX.serialization.json)
             }
@@ -80,14 +94,14 @@ kotlin {
         getByName("jvmMain") {
             dependsOn(commonMain)
             dependencies {
-                implementation(Ktor.client.okHttp)
-                /// implementation(Square.okHttp3.okHttp)
+                // implementation(Ktor.client.okHttp)
+                // implementation(Square.okHttp3.okHttp)
             }
         }
         getByName("jvmTest") {
             dependencies {
-                implementation(Testing.junit.api)
-                implementation(Testing.junit.engine)
+                implementation(Testing.junit.jupiter.api)
+                implementation(Testing.junit.jupiter.engine)
                 implementation(Kotlin.test.junit5)
             }
         }
@@ -130,8 +144,8 @@ kotlin {
 
         sourceSets {
             all {
-                languageSettings.useExperimentalAnnotation("kotlin.RequiresOptIn")
-                languageSettings.useExperimentalAnnotation("okio.ExperimentalFileSystem")
+                languageSettings.optIn("kotlin.RequiresOptIn")
+                languageSettings.optIn("okio.ExperimentalFileSystem")
             }
         }
     }
@@ -153,9 +167,31 @@ kotlin {
 
         from(jvmTarget.compilations.getByName("main").output)
         configurations = mutableListOf(
-            jvmTarget.compilations.getByName("main").compileDependencyFiles as Configuration,
-            jvmTarget.compilations.getByName("main").runtimeDependencyFiles as Configuration
+            jvmTarget.compilations.getByName("main").compileDependencyFiles,
+            jvmTarget.compilations.getByName("main").runtimeDependencyFiles
         )
+    }
+}
+
+val commitHash by lazy {
+    val commitHashCommand = "git rev-parse --short HEAD"
+    Runtime.getRuntime().exec(commitHashCommand).inputStream.bufferedReader().readLine() ?: "UnknownCommit"
+}
+
+val branch by lazy {
+    val branchCommand = "git rev-parse --abbrev-ref HEAD"
+    Runtime.getRuntime().exec(branchCommand).inputStream.bufferedReader().readLine() ?: "UnknownBranch"
+}
+
+val time by lazy {
+    ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+}
+
+buildkonfig {
+    packageName = "cli"
+    defaultConfigs {
+        buildConfigField(STRING, "version", version.toString())
+        buildConfigField(STRING, "versionLong", "$version-[$branch]$commitHash $time")
     }
 }
 
@@ -167,7 +203,6 @@ tasks.register<Copy>("install") {
     group = "run"
     description = "Build the native executable and install it"
     val destDir = "/usr/local/bin"
-
 
     dependsOn("runDebugExecutable$nativeTarget")
     val targetLowercase = nativeTarget.first().toLowerCase() + nativeTarget.substring(1)
@@ -219,7 +254,7 @@ npmPublishing {
                 main = PROGRAM
                 private = false
                 keywords = jsonArray(
-                    "kotlin", "git", "bash"
+                    "kotlin", "native", "cli"
                 )
             }
             files { assemblyDir -> // Specifies what files should be packaged. Preconfigured for default publications, yet can be extended if needed
@@ -236,6 +271,7 @@ npmPublishing {
 interface Injected {
     @get:Inject
     val exec: ExecOperations
+
     @get:Inject
     val fs: FileSystemOperations
 }
@@ -246,15 +282,15 @@ tasks.register("completions") {
     dependsOn(":install")
     val injected = project.objects.newInstance<Injected>()
     val shells = listOf(
-        Triple("bash", file("completions/git-standup.bash"), "/usr/local/etc/bash_completion.d"),
-        Triple("zsh", file("completions/_git_standup.zsh"), "/usr/local/share/zsh/site-functions"),
-        Triple("fish", file("completions/git-standup.fish"), "/usr/local/share/fish/vendor_completions.d"),
+        Triple("bash", file("completions/uniter.bash"), "/usr/local/etc/bash_completion.d"),
+        Triple("zsh", file("completions/_uniter.zsh"), "/usr/local/share/zsh/site-functions"),
+        Triple("fish", file("completions/uniter.fish"), "/usr/local/share/fish/vendor_completions.d"),
     )
     for ((SHELL, FILE, INSTALL) in shells) {
         actions.add {
             println("Updating   $SHELL completion file at $FILE")
             injected.exec.exec {
-                commandLine("git-standup", "--generate-completion", SHELL)
+                commandLine("uniter", "--generate-completion", SHELL)
                 standardOutput = FILE.outputStream()
             }
             println("Installing $SHELL completion into $INSTALL")

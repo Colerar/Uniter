@@ -2,7 +2,7 @@
 ## Install with $ brew install just
 run:
     ./gradlew allTests allRun install
-    cd .. && git-standup
+    cd .. && uniter
 ci:
     ./gradlew runOnGitHub
 github:

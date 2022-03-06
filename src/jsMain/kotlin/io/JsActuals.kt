@@ -2,8 +2,8 @@
 
 package io
 
-import path.path
 import child_process.ExecOptions
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.promise
 import okio.ExperimentalFileSystem
@@ -12,14 +12,12 @@ import okio.NodeJsFileSystem
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
-import kotlin.js.Promise.Companion.resolve
 
 
 actual val fileSystem: FileSystem = NodeJsFileSystem
 
 actual suspend fun findExecutable(executable: String): String =
     executable
-
 
 actual suspend fun executeCommandAndCaptureOutput(
     command: List<String>, // "find . -name .git"
@@ -34,7 +32,7 @@ actual suspend fun executeCommandAndCaptureOutput(
             cwd = options.directory
         }
     }
-    return suspendCoroutine<String> { continuation ->
+    return suspendCoroutine { continuation ->
         child_process.exec("$commandToExecute $redirect", execOptions) { error, stdout, stderr ->
             if (error != null) {
                 println(stderr)
@@ -54,6 +52,7 @@ actual suspend fun pwd(options: ExecuteCommandOptions): String {
     }
 }
 
+@OptIn(DelicateCoroutinesApi::class)
 actual fun runTest(block: suspend () -> Unit): dynamic =
     GlobalScope.promise { block() }
 
