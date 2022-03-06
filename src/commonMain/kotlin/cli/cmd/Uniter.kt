@@ -4,9 +4,13 @@ import cli.BuildKonfig.version
 import cli.CliConfig.COMMAND_NAME
 import com.github.ajalt.clikt.completion.completionOption
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.optional
+import com.github.ajalt.mordant.rendering.TextColors.*
+import com.github.ajalt.mordant.rendering.TextStyles.*
+import com.github.ajalt.mordant.terminal.Terminal
 import kotlinx.coroutines.CoroutineScope
 
 fun CoroutineScope.runUniter(args: Array<String>) {
@@ -30,13 +34,16 @@ class CliCommand(
         completionOption()
     }
 
-    val expr by argument("expr", "Expr to calculate").optional()
+    val expr by argument("expr", "Expression to calculate").optional()
 
     override fun run() {
         if (currentContext.invokedSubcommand != null) return
         if (expr.isNullOrBlank()) {
-            echo("Expr is null")
-            echo(getFormattedHelp())
+            with(Terminal()) {
+                println((yellow)("v$version"))
+                println("Use ${(brightYellow + bold on black)("uniter -h")} for help")
+            }
+            throw ProgramResult(0)
         }
     }
 }

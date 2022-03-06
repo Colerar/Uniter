@@ -1,8 +1,11 @@
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithHostTests
 import com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING
-import java.time.*
-import java.time.format.*
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 buildscript {
     repositories {
@@ -50,7 +53,7 @@ val nativeTarget = when {
     else -> throw GradleException("Host $hostOs is not supported in Kotlin/Native.")
 }
 
-fun KotlinNativeTargetWithHostTests.configureTarget() =
+fun KotlinNativeTarget.configureTarget() =
     binaries { executable { entryPoint = "main" } }
 
 kotlin {
@@ -61,6 +64,16 @@ kotlin {
 
     val jvmTarget = jvm()
 
+    /**
+     *   common
+     *   |-- jvm
+     *   '-- native
+     *      |- posix
+     *      |   |-- macosX64
+     *      |   |-- linuxX64
+     *      '-- mingw
+     *         '-- mingwX64
+     */
     sourceSets {
         all {
             languageSettings.optIn("kotlin.RequiresOptIn")
@@ -186,7 +199,7 @@ tasks.register<Copy>("install") {
     description = "Build the native executable and install it"
     val destDir = "/usr/local/bin"
 
-    dependsOn("runDebugExecutable$nativeTarget")
+    dependsOn("linkDebugExecutable$nativeTarget")
     val targetLowercase = nativeTarget.first().toLowerCase() + nativeTarget.substring(1)
     val folder = "build/bin/$targetLowercase/debugExecutable"
     from(folder) {
@@ -205,10 +218,36 @@ tasks.register("allRun") {
     dependsOn("run", "runDebugExecutable$nativeTarget")
 }
 
-tasks.register("runOnGitHub") {
-    group = "run"
-    description = "CI with Github Actions : .github/workflows/runOnGitHub.yml"
-    dependsOn("allTests", "allRun")
+tasks.register("buildReleases") {
+    group = "build"
+    description = "Run $PROGRAM on the JVM and natively"
+    doFirst {
+        delete("./build/native")
+    }
+    dependsOn("linkReleaseExecutableLinuxX64", "linkReleaseExecutableMacosX64", "linkReleaseExecutableMingwX64")
+    doLast {
+        runBlocking {
+            val projectName = rootProject.name
+            File("./build/bin").listFiles().orEmpty().asFlow()
+                .filterNotNull()
+                .filter { it.isDirectory }
+                .onEach { dir ->
+                    val file = File(dir, "releaseExecutable").listFiles().orEmpty().filterNotNull().first {
+                        it.name.startsWith(projectName) && (it.extension == "exe" || it.extension == "kexe")
+                    }
+                    copy {
+                        from(file.parent)
+                        val name = file.name
+                        include(name)
+                        rename {
+                            if (it.endsWith(".exe")) it else rootProject.name
+                        }
+                        into("build/native/${file.parentFile.parentFile.name}-$version")
+                    }
+                }
+                .collect()
+        }
+    }
 }
 
 interface Injected {
