@@ -61,11 +61,6 @@ kotlin {
 
     val jvmTarget = jvm()
 
-    val node = js(LEGACY) {
-        nodejs()
-        binaries.executable()
-    }
-
     sourceSets {
         all {
             languageSettings.optIn("kotlin.RequiresOptIn")
@@ -128,19 +123,6 @@ kotlin {
             getByName("${targetName}Main").dependsOn(nativeMain)
             getByName("${targetName}Test").dependsOn(nativeTest)
         }
-        getByName("jsMain") {
-            dependencies {
-                implementation("com.squareup.okio:okio-nodefilesystem-js:_")
-                implementation(KotlinX.nodeJs)
-            }
-        }
-        getByName("jsTest") {
-            dependsOn(nativeTest)
-            dependencies {
-                implementation(Kotlin.test.jsRunner)
-                implementation(kotlin("test-js"))
-            }
-        }
 
         sourceSets {
             all {
@@ -183,7 +165,7 @@ val branch by lazy {
     Runtime.getRuntime().exec(branchCommand).inputStream.bufferedReader().readLine() ?: "UnknownBranch"
 }
 
-val time by lazy {
+val time: String by lazy {
     ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_ZONED_DATE_TIME)
 }
 
@@ -219,53 +201,14 @@ tasks.register<Copy>("install") {
 
 tasks.register("allRun") {
     group = "run"
-    description = "Run $PROGRAM on the JVM, on Node and natively"
-    dependsOn("run", "jsNodeRun", "runDebugExecutable$nativeTarget")
+    description = "Run $PROGRAM on the JVM and natively"
+    dependsOn("run", "runDebugExecutable$nativeTarget")
 }
 
 tasks.register("runOnGitHub") {
     group = "run"
     description = "CI with Github Actions : .github/workflows/runOnGitHub.yml"
     dependsOn("allTests", "allRun")
-}
-
-// See https://github.com/mpetuska/npm-publish
-npmPublishing {
-    dry = false
-    repositories {
-        val token = System.getenv("NPM_AUTH_TOKEN")
-        if (token == null) {
-            println("No environment variable NPM_AUTH_TOKEN found, using dry-run for publish")
-            dry = true
-        } else {
-            repository("npmjs") {
-                registry = uri("https://registry.npmjs.org")
-                authToken = token
-            }
-        }
-    }
-    publications {
-        publication("js") {
-            readme = file("README.md")
-            packageJson {
-                bin = mutableMapOf(
-                    Pair(PROGRAM, "./$PROGRAM")
-                )
-                main = PROGRAM
-                private = false
-                keywords = jsonArray(
-                    "kotlin", "native", "cli"
-                )
-            }
-            files { assemblyDir -> // Specifies what files should be packaged. Preconfigured for default publications, yet can be extended if needed
-                from("$assemblyDir/../dir")
-                from("bin") {
-                    include(PROGRAM)
-                }
-            }
-        }
-
-    }
 }
 
 interface Injected {
