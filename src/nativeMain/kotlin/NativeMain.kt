@@ -4,5 +4,5 @@ import kotlinx.coroutines.GlobalScope
 
 @OptIn(DelicateCoroutinesApi::class)
 fun main(args: Array<String>) {
-    GlobalScope.runUniter(args)
+  GlobalScope.runUniter(args)
 }

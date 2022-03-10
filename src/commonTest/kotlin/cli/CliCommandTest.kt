@@ -1,4 +1,3 @@
 package cli
 
-class CliCommandTest {
-}
+class CliCommandTest
